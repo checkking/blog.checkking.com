@@ -1,0 +1,31 @@
+#GitBlog配置文件，使用4个空格代替Tab
+---
+url: /
+title: Check King's Blog
+subtitle: Always...
+theme: quest
+enableCache: true
+highlight: true
+mathjax: false
+katex: false
+duoshuo:
+baiduAnalytics:
+keywords: Check King,checkking,技术博客
+description: >
+    用来记录我的技术点点滴滴
+version: 2.2
+author:
+    name: checkking
+    email: checkking@foxmail.com
+    github: checkking
+    weibo:
+    avatar: http://avatar.csdn.net/C/5/D/1_u012308776.jpg
+blog:
+    recentSize: 5
+    pageSize: 6
+    pageBarSize: 5
+    allBlogsForPage: false
+text:
+    title: 介绍
+    intro: >
+           记录点啥...
