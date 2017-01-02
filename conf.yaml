@@ -2,8 +2,8 @@
 ---
 url: /
 title: Check King's Blog
-subtitle: Always...
-theme: quest
+subtitle: Always On The Way...
+theme: default
 enableCache: true
 highlight: true
 mathjax: false
@@ -28,4 +28,4 @@ blog:
 text:
     title: 介绍
     intro: >
-           记录点啥...
+        关于技术，关于生活，关于思想...
