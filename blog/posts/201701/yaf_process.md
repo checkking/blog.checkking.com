@@ -559,5 +559,89 @@ extern zend_class_entry *yaf_dispatcher_ce;
 ### 路由
 前面run流程中的路由模块就是利用内置路由策略或者你自定义的路由策略，通过解析URL获取contraller、action、model的名称。
         这里分为两层的概念，一层我称之为路由器，在路由器下有对应的路由策略或者路由协议，官方手册中介绍了六种内置路由协议的功能。
+```c
+int yaf_dispatcher_route(yaf_dispatcher_t *dispatcher, yaf_request_t *request TSRMLS_DC) {
+	zend_class_entry *router_ce;
+	yaf_router_t *router = zend_read_property(yaf_dispatcher_ce, dispatcher, ZEND_STRL(YAF_DISPATCHER_PROPERTY_NAME_ROUTER), 1 TSRMLS_CC);
+	if (IS_OBJECT == Z_TYPE_P(router)) {
+		if ((router_ce = Z_OBJCE_P(router)) == yaf_router_ce) {
+			/* use built-in router */
+			yaf_router_route(router, request TSRMLS_CC);
+		} else {
+			/* user custom router */
+			zval *ret = zend_call_method_with_1_params(&router, router_ce, NULL, "route", &ret, request);
+			if (Z_TYPE_P(ret) == IS_BOOL && Z_BVAL_P(ret) == 0) {
+				yaf_trigger_error(YAF_ERR_ROUTE_FAILED TSRMLS_CC, "Routing request faild");
+				return 0;
+			}
+		}
+		return 1;
+	}
+	return 0;
+}
+```
+这段代码是路由环节的入口，dispatcher初始化时会创建内置路由器，这里只涉及路由器概念，上面的自定义并不是自定义路由协议，而是你可以重新写一个路由器，我们通常在项目中自定义路由协议就可以了，没有必要自己实现一个路由器。而且框架中其实也是写死了内置路由器，没有给你set自定义路由器的接口。
+```c
+int yaf_router_route(yaf_router_t *router, yaf_request_t *request TSRMLS_DC) {
+	zval 		*routers, *ret;
+	yaf_route_t	**route;
+	HashTable 	*ht;
 
+	routers = zend_read_property(yaf_router_ce, router, ZEND_STRL(YAF_ROUTER_PROPERTY_NAME_ROUTES), 1 TSRMLS_CC);
 
+	ht = Z_ARRVAL_P(routers);
+	for(zend_hash_internal_pointer_end(ht);
+			zend_hash_has_more_elements(ht) == SUCCESS;
+			zend_hash_move_backwards(ht)) {
+
+		if (zend_hash_get_current_data(ht, (void**)&route) == FAILURE) {
+			continue;
+		}
+
+		zend_call_method_with_1_params(route, Z_OBJCE_PP(route), NULL, "route", &ret, request);
+
+		if (IS_BOOL != Z_TYPE_P(ret) || !Z_BVAL_P(ret)) {
+			zval_ptr_dtor(&ret);
+			continue;
+		} else {
+			char *key;
+			uint len = 0;
+			ulong idx = 0;
+
+			switch(zend_hash_get_current_key_ex(ht, &key, &len, &idx, 0, NULL)) {
+				case HASH_KEY_IS_LONG:
+					zend_update_property_long(yaf_router_ce, router, ZEND_STRL(YAF_ROUTER_PROPERTY_NAME_CURRENT_ROUTE), idx TSRMLS_CC);
+					break;
+				case HASH_KEY_IS_STRING:
+					if (len) {
+						zend_update_property_string(yaf_router_ce, router, ZEND_STRL(YAF_ROUTER_PROPERTY_NAME_CURRENT_ROUTE), key TSRMLS_CC);
+					}
+					break;
+			}
+			yaf_request_set_routed(request, 1 TSRMLS_CC);
+			zval_ptr_dtor(&ret);
+			break;
+		}
+	}
+	return 1;
+}
+```
+首先拿到所有的路由协议routers（你可以添加多层路由协议，类似于多重插件），for循环依次调用路由协议的“route”方法，成功则记下当前生效的这个路由协议的索引位置，并设置request为已路由。不成功则继续调用下一个路由协议。
+具体路由器的实现代码再yaf_router.c中. 路由协议代码的实现在routes/的目录下。
+```bash
+root@checkking:~/github/yaf-2.3.4/routes# ll *.h *.c
+-rw-rw-r-- 1 1001 1001  5989 Aug 13  2015 yaf_route_interface.c
+-rw-rw-r-- 1 1001 1001  2059 Aug 13  2015 yaf_route_interface.h
+-rw-rw-r-- 1 1001 1001 10385 Aug 13  2015 yaf_route_map.c
+-rw-rw-r-- 1 1001 1001  1490 Aug 13  2015 yaf_route_map.h
+-rw-rw-r-- 1 1001 1001 14413 Aug 13  2015 yaf_route_regex.c
+-rw-rw-r-- 1 1001 1001  1401 Aug 13  2015 yaf_route_regex.h
+-rw-rw-r-- 1 1001 1001 15566 Aug 13  2015 yaf_route_rewrite.c
+-rw-rw-r-- 1 1001 1001  1388 Aug 13  2015 yaf_route_rewrite.h
+-rw-rw-r-- 1 1001 1001  9635 Aug 13  2015 yaf_route_simple.c
+-rw-rw-r-- 1 1001 1001  1550 Aug 13  2015 yaf_route_simple.h
+-rw-rw-r-- 1 1001 1001  8906 Aug 13  2015 yaf_route_static.c
+-rw-rw-r-- 1 1001 1001  1364 Aug 13  2015 yaf_route_static.h
+-rw-rw-r-- 1 1001 1001  7713 Aug 13  2015 yaf_route_supervar.c
+-rw-rw-r-- 1 1001 1001  1421 Aug 13  2015 yaf_route_supervar.h
+```
