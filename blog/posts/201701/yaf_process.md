@@ -7,31 +7,31 @@ category:yaf
 status: publish
 summary: 梳理一下YAF的流程
 -->
-AP框架是通过PHP扩展实现的一种PHP MVC开发框架，也是ODP架构的核心技术。其作者是著名的鸟哥，对应的开源版本为Yaf。学习并了解其实现原理，即有助于很好的理解ODP开发模式，还能看到框架的实现细节，避免在使用过程中踩坑，也为进一步改进和优化AP框架奠定基础。同时还可以学习到优秀的PHP扩展开发的一些技巧。本文通过对AP的源码解析，深入理解其实现细节，并通过简单举例贯串框架主线，帮助读者深入浅出。
+YAF框架是通过PHP扩展实现的一种PHP MVC开发框架，也是ODP架构的核心技术。其作者是著名的鸟哥，对应的开源版本为Yaf。学习并了解其实现原理，即有助于很好的理解ODP开发模式，还能看到框架的实现细节，避免在使用过程中踩坑，也为进一步改进和优化YAF框架奠定基础。同时还可以学习到优秀的PHP扩展开发的一些技巧。本文通过对YAF的源码解析，深入理解其实现细节，并通过简单举例贯串框架主线，帮助读者深入浅出。
 ### 前言
-因为AP框架是PHP扩展实现的，所以学习AP源码必须要了解一些PHP内核原理，PHP扩展开发基础。由于PHP内核及扩展均为C语言实现，还需要具备一定的C基础。AP框架在公司内主要随ODP开发框架一起，文中某些例子是基于ODP的，所以希望读者是已经使用过ODP开发的，或者是了解过ODP开发的。本文假设读者已具备所需前驱知识，文章附录会附上相关知识的学习地址，方便不了解的同学进一步学习。
-### AP整体流程
-这里引用AP官方的经典流程图如图1所示：
+因为YAF框架是PHP扩展实现的，所以学习YAF源码必须要了解一些PHP内核原理，PHP扩展开发基础。由于PHP内核及扩展均为C语言实现，还需要具备一定的C基础。YAF框架在公司内主要随ODP开发框架一起，文中某些例子是基于ODP的，所以希望读者是已经使用过ODP开发的，或者是了解过ODP开发的。本文假设读者已具备所需前驱知识，文章附录会附上相关知识的学习地址，方便不了解的同学进一步学习。
+### YAF整体流程
+这里引用YAF官方的经典流程图如图1所示：
 ![Yaf流程图](../../img/201701/yaf_sequence.png)
 对照官方手册时初看这个流程图时，可能对其中各个环节并没有很清晰的印象，但是如果结合源码一起的话，相信大家看过之后就会印象深刻。下面我就通过源码来分析上图中的各个环节。
 
 我们在开发一个Yaf的app时，通常的入口index文件内容会是如下：
 ```php
 <?php
-define('APPLICATION_PATH', dirname(__FILE__));
-$application = new Yaf_Application( APPLICATION_PATH . "/conf/application.ini");
+define('YAFPLICATION_PATH', dirname(__FILE__));
+$application = new Yaf_Application( YAFPLICATION_PATH . "/conf/application.ini");
 $application->bootstrap()->run();
 ?>
 ```
 非常简单的两句代码，包含了全部内容。
 第二行完成了Yaf框架核心类Yaf_Application的初始化,第三行完成了上面流程图中的所有环节，我们先简单分析一下上述流程。
 
-我们看到application一级目录下有个Bootstrap.php文件，这个就是对应图中的第一个环节，如果存在Bootstrap就会先执行该文件。该文件包含了一系列的初始化环节，并返回一个Ap_Application对象，紧接着调用了它的run方法，run里面包含了图中所有环节。run首先是调用路由，路由的主要目的其实就是找到controllers文件，该文件中记录着所有actions的地址，所以通过controllers加载action，而action就是真正业务逻辑的入口。在下面的dispatcher中会调用action的execute方法来调用下层业务逻辑，如果设置了autoRender在返回的时候会执行render方法。图中有六个双横线标出的环节，就是六个插件方法，用户可以自定义实现这几个方法，AP框架会在图中相应的步骤处调用对应的HOOK方法。
-        所以一次请求的过程就是通过路由找到action，然后执行其execute方法。下面分章节通过源码详细介绍AP中各个部分的实现过程。AP代码结构也很简单清晰，基本按照每个C文件去分析就可以了。
+我们看到application一级目录下有个Bootstrap.php文件，这个就是对应图中的第一个环节，如果存在Bootstrap就会先执行该文件。该文件包含了一系列的初始化环节，并返回一个Yaf_Application对象，紧接着调用了它的run方法，run里面包含了图中所有环节。run首先是调用路由，路由的主要目的其实就是找到controllers文件，该文件中记录着所有actions的地址，所以通过controllers加载action，而action就是真正业务逻辑的入口。在下面的dispatcher中会调用action的execute方法来调用下层业务逻辑，如果设置了autoRender在返回的时候会执行render方法。图中有六个双横线标出的环节，就是六个插件方法，用户可以自定义实现这几个方法，YAF框架会在图中相应的步骤处调用对应的HOOK方法。
+        所以一次请求的过程就是通过路由找到action，然后执行其execute方法。下面分章节通过源码详细介绍YAF中各个部分的实现过程。YAF代码结构也很简单清晰，基本按照每个C文件去分析就可以了。
 
 ### 核心功能模块
 #### Yaf_Application
-application就是AP框架的核心类，我们先看其定义:
+application就是YAF框架的核心类，我们先看其定义:
 ```c
 YAF_STARTUP_FUNCTION(application) {                                                                                                                                                           
     zend_class_entry ce; 
@@ -40,16 +40,16 @@ YAF_STARTUP_FUNCTION(application) {
     yaf_application_ce = zend_register_internal_class_ex(&ce, NULL, NULL TSRMLS_CC);
     yaf_application_ce->ce_flags |= ZEND_ACC_FINAL_CLASS;
 
-    zend_declare_property_null(yaf_application_ce, ZEND_STRL(YAF_APPLICATION_PROPERTY_NAME_CONFIG),     ZEND_ACC_PROTECTED TSRMLS_CC);
-    zend_declare_property_null(yaf_application_ce, ZEND_STRL(YAF_APPLICATION_PROPERTY_NAME_DISPATCHER),     ZEND_ACC_PROTECTED TSRMLS_CC);
-    zend_declare_property_null(yaf_application_ce, ZEND_STRL(YAF_APPLICATION_PROPERTY_NAME_APP),        ZEND_ACC_STATIC | ZEND_ACC_PROTECTED TSRMLS_CC);
-    zend_declare_property_null(yaf_application_ce, ZEND_STRL(YAF_APPLICATION_PROPERTY_NAME_MODULES),    ZEND_ACC_PROTECTED TSRMLS_CC);
+    zend_declare_property_null(yaf_application_ce, ZEND_STRL(YAF_YAFPLICATION_PROPERTY_NAME_CONFIG),     ZEND_ACC_PROTECTED TSRMLS_CC);
+    zend_declare_property_null(yaf_application_ce, ZEND_STRL(YAF_YAFPLICATION_PROPERTY_NAME_DISPATCHER),     ZEND_ACC_PROTECTED TSRMLS_CC);
+    zend_declare_property_null(yaf_application_ce, ZEND_STRL(YAF_YAFPLICATION_PROPERTY_NAME_YAFP),        ZEND_ACC_STATIC | ZEND_ACC_PROTECTED TSRMLS_CC);
+    zend_declare_property_null(yaf_application_ce, ZEND_STRL(YAF_YAFPLICATION_PROPERTY_NAME_MODULES),    ZEND_ACC_PROTECTED TSRMLS_CC);
 
-    zend_declare_property_bool(yaf_application_ce, ZEND_STRL(YAF_APPLICATION_PROPERTY_NAME_RUN),    0,      ZEND_ACC_PROTECTED TSRMLS_CC);
-    zend_declare_property_string(yaf_application_ce, ZEND_STRL(YAF_APPLICATION_PROPERTY_NAME_ENV),  YAF_G(environ), ZEND_ACC_PROTECTED TSRMLS_CC);
+    zend_declare_property_bool(yaf_application_ce, ZEND_STRL(YAF_YAFPLICATION_PROPERTY_NAME_RUN),    0,      ZEND_ACC_PROTECTED TSRMLS_CC);
+    zend_declare_property_string(yaf_application_ce, ZEND_STRL(YAF_YAFPLICATION_PROPERTY_NAME_ENV),  YAF_G(environ), ZEND_ACC_PROTECTED TSRMLS_CC);
 
-    zend_declare_property_long(yaf_application_ce, ZEND_STRL(YAF_APPLICATION_PROPERTY_NAME_ERRNO),      0,  ZEND_ACC_PROTECTED TSRMLS_CC);
-    zend_declare_property_string(yaf_application_ce, ZEND_STRL(YAF_APPLICATION_PROPERTY_NAME_ERRMSG),   "",     ZEND_ACC_PROTECTED TSRMLS_CC);
+    zend_declare_property_long(yaf_application_ce, ZEND_STRL(YAF_YAFPLICATION_PROPERTY_NAME_ERRNO),      0,  ZEND_ACC_PROTECTED TSRMLS_CC);
+    zend_declare_property_string(yaf_application_ce, ZEND_STRL(YAF_YAFPLICATION_PROPERTY_NAME_ERRMSG),   "",     ZEND_ACC_PROTECTED TSRMLS_CC);
 
     return SUCCESS;
 }
@@ -81,8 +81,8 @@ zend_function_entry yaf_application_methods[] = {
 ```
 > PHP内核方法
 PHP内核中对PHP类的实现是通过zend_class_entry结构实现的，所以可以把ce理解为类的通用结构
-AP_INIT_CLASS_ENTRY(ce, "Ap_Application", "Ap\\Application", ap_application_methods);
-相当于对ce初始化，指定一个类名称Ap_Application，指定类的成员方法列表 ap_application_methods
+YAF_INIT_CLASS_ENTRY(ce, "Yaf_Application", "Yaf\\Application", ap_application_methods);
+相当于对ce初始化，指定一个类名称Yaf_Application，指定类的成员方法列表 ap_application_methods
 ap_application_ce               = zend_register_internal_class_ex(&ce, NULL, NULL TSRMLS_CC);
 向PHP注册类，PHP中由class_table维护全局的类数组，可以简单理解为把类添加到这个数组中，这样就可以在PHP中找到这个类了。内核中有一组类似的注册函数，用来注册接口、类、子类、接口实现、抽象类等
 ap_application_ce->ce_flags |= ZEND_ACC_FINAL_CLASS;
@@ -105,7 +105,7 @@ ap_application_ce->ce_flags |= ZEND_ACC_FINAL_CLASS;
 #define ZEND_ACC_FINAL_CLASS                0x40
 define ZEND_ACC_INTERFACE      0x80
 ```
-代码new Yaf_Application( APPLICATION_PATH . "/conf/application.ini"), $application->bootstrap()->run() 分别对应了下面三个函数：
+代码new Yaf_Application( YAFPLICATION_PATH . "/conf/application.ini"), $application->bootstrap()->run() 分别对应了下面三个函数：
 ```c
 	PHP_ME(yaf_application, __construct, 		yaf_application_construct_arginfo, 	ZEND_ACC_PUBLIC | ZEND_ACC_CTOR)
 	PHP_ME(yaf_application, bootstrap,   		yaf_application_bootstrap_arginfo,  	ZEND_ACC_PUBLIC)
@@ -123,7 +123,7 @@ PHP_METHOD(yaf_application, __construct) {
 	zval 			*config;
 	zval 			*section = NULL;
 
-	app	 = zend_read_static_property(yaf_application_ce, ZEND_STRL(YAF_APPLICATION_PROPERTY_NAME_APP), 1 TSRMLS_CC);
+	app	 = zend_read_static_property(yaf_application_ce, ZEND_STRL(YAF_YAFPLICATION_PROPERTY_NAME_YAFP), 1 TSRMLS_CC);
 
 #if PHP_YAF_DEBUG
 	php_error_docref(NULL TSRMLS_CC, E_STRICT, "Yaf is running in debug mode");
@@ -182,8 +182,8 @@ PHP_METHOD(yaf_application, __construct) {
 	}
 	yaf_dispatcher_set_request(zdispatcher, request TSRMLS_CC);
 
-	zend_update_property(yaf_application_ce, self, ZEND_STRL(YAF_APPLICATION_PROPERTY_NAME_CONFIG), zconfig TSRMLS_CC);
-	zend_update_property(yaf_application_ce, self, ZEND_STRL(YAF_APPLICATION_PROPERTY_NAME_DISPATCHER), zdispatcher TSRMLS_CC);
+	zend_update_property(yaf_application_ce, self, ZEND_STRL(YAF_YAFPLICATION_PROPERTY_NAME_CONFIG), zconfig TSRMLS_CC);
+	zend_update_property(yaf_application_ce, self, ZEND_STRL(YAF_YAFPLICATION_PROPERTY_NAME_DISPATCHER), zdispatcher TSRMLS_CC);
 
 	zval_ptr_dtor(&request);
 	zval_ptr_dtor(&zdispatcher);
@@ -208,18 +208,18 @@ PHP_METHOD(yaf_application, __construct) {
 		RETURN_FALSE;
 	}
 
-	zend_update_property_bool(yaf_application_ce, self, ZEND_STRL(YAF_APPLICATION_PROPERTY_NAME_RUN), 0 TSRMLS_CC);
-	zend_update_property_string(yaf_application_ce, self, ZEND_STRL(YAF_APPLICATION_PROPERTY_NAME_ENV), YAF_G(environ) TSRMLS_CC);
+	zend_update_property_bool(yaf_application_ce, self, ZEND_STRL(YAF_YAFPLICATION_PROPERTY_NAME_RUN), 0 TSRMLS_CC);
+	zend_update_property_string(yaf_application_ce, self, ZEND_STRL(YAF_YAFPLICATION_PROPERTY_NAME_ENV), YAF_G(environ) TSRMLS_CC);
 
 	if (YAF_G(modules)) {
-		zend_update_property(yaf_application_ce, self, ZEND_STRL(YAF_APPLICATION_PROPERTY_NAME_MODULES), YAF_G(modules) TSRMLS_CC);
+		zend_update_property(yaf_application_ce, self, ZEND_STRL(YAF_YAFPLICATION_PROPERTY_NAME_MODULES), YAF_G(modules) TSRMLS_CC);
 		Z_DELREF_P(YAF_G(modules));
 		YAF_G(modules) = NULL;
 	} else {
-		zend_update_property_null(yaf_application_ce, self, ZEND_STRL(YAF_APPLICATION_PROPERTY_NAME_MODULES) TSRMLS_CC);
+		zend_update_property_null(yaf_application_ce, self, ZEND_STRL(YAF_YAFPLICATION_PROPERTY_NAME_MODULES) TSRMLS_CC);
 	}
 
-	zend_update_static_property(yaf_application_ce, ZEND_STRL(YAF_APPLICATION_PROPERTY_NAME_APP), self TSRMLS_CC);
+	zend_update_static_property(yaf_application_ce, ZEND_STRL(YAF_YAFPLICATION_PROPERTY_NAME_YAFP), self TSRMLS_CC);
 }
 ```
 这是构造函数，根据配置文件做一些初始化, 包括构造dispatcher，和request。
@@ -232,19 +232,19 @@ PHP_METHOD(yaf_application, bootstrap) {
 	zend_class_entry	**ce;
 	yaf_application_t	*self = getThis();
 
-	if (zend_hash_find(EG(class_table), YAF_DEFAULT_BOOTSTRAP_LOWER, YAF_DEFAULT_BOOTSTRAP_LEN, (void **) &ce) != SUCCESS) {
+	if (zend_hash_find(EG(class_table), YAF_DEFAULT_BOOTSTRYAF_LOWER, YAF_DEFAULT_BOOTSTRYAF_LEN, (void **) &ce) != SUCCESS) {
 		if (YAF_G(bootstrap)) {
 			bootstrap_path  = estrdup(YAF_G(bootstrap));
 			len = strlen(YAF_G(bootstrap));
 		} else {
-			len = spprintf(&bootstrap_path, 0, "%s%c%s.%s", YAF_G(directory), DEFAULT_SLASH, YAF_DEFAULT_BOOTSTRAP, YAF_G(ext));
+			len = spprintf(&bootstrap_path, 0, "%s%c%s.%s", YAF_G(directory), DEFAULT_SLASH, YAF_DEFAULT_BOOTSTRYAF, YAF_G(ext));
 		}
 
 		if (!yaf_loader_import(bootstrap_path, len + 1, 0 TSRMLS_CC)) {
 			php_error_docref(NULL TSRMLS_CC, E_WARNING, "Couldn't find bootstrap file %s", bootstrap_path);
 			retval = 0;
-		} else if (zend_hash_find(EG(class_table), YAF_DEFAULT_BOOTSTRAP_LOWER, YAF_DEFAULT_BOOTSTRAP_LEN, (void **) &ce) != SUCCESS)  {
-			php_error_docref(NULL TSRMLS_CC, E_WARNING, "Couldn't find class %s in %s", YAF_DEFAULT_BOOTSTRAP, bootstrap_path);
+		} else if (zend_hash_find(EG(class_table), YAF_DEFAULT_BOOTSTRYAF_LOWER, YAF_DEFAULT_BOOTSTRYAF_LEN, (void **) &ce) != SUCCESS)  {
+			php_error_docref(NULL TSRMLS_CC, E_WARNING, "Couldn't find class %s in %s", YAF_DEFAULT_BOOTSTRYAF, bootstrap_path);
 			retval = 0;
 		} else if (!instanceof_function(*ce, yaf_bootstrap_ce TSRMLS_CC)) {
 			php_error_docref(NULL TSRMLS_CC, E_WARNING, "Expect a %s instance, %s give", yaf_bootstrap_ce->name, (*ce)->name);
@@ -263,7 +263,7 @@ PHP_METHOD(yaf_application, bootstrap) {
 
 		MAKE_STD_ZVAL(bootstrap);
 		object_init_ex(bootstrap, *ce);
-		dispatcher = zend_read_property(yaf_application_ce, self, ZEND_STRL(YAF_APPLICATION_PROPERTY_NAME_DISPATCHER), 1 TSRMLS_CC);
+		dispatcher = zend_read_property(yaf_application_ce, self, ZEND_STRL(YAF_YAFPLICATION_PROPERTY_NAME_DISPATCHER), 1 TSRMLS_CC);
 
 		methods	= &((*ce)->function_table);
 		for(zend_hash_internal_pointer_reset(methods);
@@ -275,7 +275,7 @@ PHP_METHOD(yaf_application, bootstrap) {
 
 			zend_hash_get_current_key_ex(methods, &func, &len, &idx, 0, NULL);
 			/* cann't use ZEND_STRL in strncasecmp, it cause a compile failed in VS2009 */
-			if (strncasecmp(func, YAF_BOOTSTRAP_INITFUNC_PREFIX, sizeof(YAF_BOOTSTRAP_INITFUNC_PREFIX)-1)) {
+			if (strncasecmp(func, YAF_BOOTSTRYAF_INITFUNC_PREFIX, sizeof(YAF_BOOTSTRYAF_INITFUNC_PREFIX)-1)) {
 				continue;
 			}
 
@@ -341,19 +341,19 @@ PHP_METHOD(yaf_application, bootstrap) {
 	zend_class_entry	**ce;
 	yaf_application_t	*self = getThis();
 
-	if (zend_hash_find(EG(class_table), YAF_DEFAULT_BOOTSTRAP_LOWER, YAF_DEFAULT_BOOTSTRAP_LEN, (void **) &ce) != SUCCESS) {
+	if (zend_hash_find(EG(class_table), YAF_DEFAULT_BOOTSTRYAF_LOWER, YAF_DEFAULT_BOOTSTRYAF_LEN, (void **) &ce) != SUCCESS) {
 		if (YAF_G(bootstrap)) {
 			bootstrap_path  = estrdup(YAF_G(bootstrap));
 			len = strlen(YAF_G(bootstrap));
 		} else {
-			len = spprintf(&bootstrap_path, 0, "%s%c%s.%s", YAF_G(directory), DEFAULT_SLASH, YAF_DEFAULT_BOOTSTRAP, YAF_G(ext));
+			len = spprintf(&bootstrap_path, 0, "%s%c%s.%s", YAF_G(directory), DEFAULT_SLASH, YAF_DEFAULT_BOOTSTRYAF, YAF_G(ext));
 		}
 
 		if (!yaf_loader_import(bootstrap_path, len + 1, 0 TSRMLS_CC)) {
 			php_error_docref(NULL TSRMLS_CC, E_WARNING, "Couldn't find bootstrap file %s", bootstrap_path);
 			retval = 0;
-		} else if (zend_hash_find(EG(class_table), YAF_DEFAULT_BOOTSTRAP_LOWER, YAF_DEFAULT_BOOTSTRAP_LEN, (void **) &ce) != SUCCESS)  {
-			php_error_docref(NULL TSRMLS_CC, E_WARNING, "Couldn't find class %s in %s", YAF_DEFAULT_BOOTSTRAP, bootstrap_path);
+		} else if (zend_hash_find(EG(class_table), YAF_DEFAULT_BOOTSTRYAF_LOWER, YAF_DEFAULT_BOOTSTRYAF_LEN, (void **) &ce) != SUCCESS)  {
+			php_error_docref(NULL TSRMLS_CC, E_WARNING, "Couldn't find class %s in %s", YAF_DEFAULT_BOOTSTRYAF, bootstrap_path);
 			retval = 0;
 		} else if (!instanceof_function(*ce, yaf_bootstrap_ce TSRMLS_CC)) {
 			php_error_docref(NULL TSRMLS_CC, E_WARNING, "Expect a %s instance, %s give", yaf_bootstrap_ce->name, (*ce)->name);
@@ -372,7 +372,7 @@ PHP_METHOD(yaf_application, bootstrap) {
 
 		MAKE_STD_ZVAL(bootstrap);
 		object_init_ex(bootstrap, *ce);
-		dispatcher = zend_read_property(yaf_application_ce, self, ZEND_STRL(YAF_APPLICATION_PROPERTY_NAME_DISPATCHER), 1 TSRMLS_CC);
+		dispatcher = zend_read_property(yaf_application_ce, self, ZEND_STRL(YAF_YAFPLICATION_PROPERTY_NAME_DISPATCHER), 1 TSRMLS_CC);
 
 		methods	= &((*ce)->function_table); // Bootstrap类中实现的所有方法，也就是那些_init开头的方法
 		for(zend_hash_internal_pointer_reset(methods);
@@ -386,7 +386,7 @@ PHP_METHOD(yaf_application, bootstrap) {
             // 取出方法名，赋值给func
 			zend_hash_get_current_key_ex(methods, &func, &len, &idx, 0, NULL);
 			/* cann't use ZEND_STRL in strncasecmp, it cause a compile failed in VS2009 */
-			if (strncasecmp(func, YAF_BOOTSTRAP_INITFUNC_PREFIX, sizeof(YAF_BOOTSTRAP_INITFUNC_PREFIX)-1)) {
+			if (strncasecmp(func, YAF_BOOTSTRYAF_INITFUNC_PREFIX, sizeof(YAF_BOOTSTRYAF_INITFUNC_PREFIX)-1)) {
 				continue;
 			}
             // 调用所有以_init开头的函数，入参统一为dispatcher
@@ -645,3 +645,134 @@ root@checkking:~/github/yaf-2.3.4/routes# ll *.h *.c
 -rw-rw-r-- 1 1001 1001  7713 Aug 13  2015 yaf_route_supervar.c
 -rw-rw-r-- 1 1001 1001  1421 Aug 13  2015 yaf_route_supervar.h
 ```
+#### 自动加载yaf_loader
+下面我们介绍一下yaf_loader加载器, Yaf主要通过spl_autoload方式实现的，这是php标准库中的一个方法。
+> **spl_autoload**
+当需要使用自动加载功能时，使用函数spl_autoload_register()或spl_autoload_register('autoloadfuncitonname')，无参的spl_autoload_register()会默认加载spl_autoload()函数，该函数功能有限，只能在inlcude_path中搜索指定扩展名的类库。有参的spl_autoload_register()默认不再加载spl_autoload()函数。
+可以通过spl_autoload_functions()查看当前自动加载hashtable中的函数，该函数返回一个数组。注意，使用spl_autoload时，系统会忽略拦截器__autoload，除非显式地使用spl_autoload_register('__autoload')将其加入hashtable。
+利用spl_autoload_register把Yaf_Loader的自动加载器注册进去，实现yaf加载类文件的规则。
+
+yaf_loader_instance初始化加载器的入口
+```c
+MAKE_STD_ZVAL(instance);
+object_init_ex(instance, yaf_loader_ce);
+//分配内存，并初始化为yaf_loader_ce类型，这样就创建了该类
+ 
+ if(!yaf_loader_register(instance TSRMLS_CC)) {
+         return NULL;
+ }
+ // 把自己的加载函数注册到spl中
+```
+再进一步看一下yaf_loader_register
+```c
+int ap_loader_register(ap_loader_t *loader TSRMLS_DC)
+    // .....
+    MAKE_STD_ZVAL(method);
+    ZVAL_STRING(method, YAF_AUTOLOAD_FUNC_NAME, 1);
+    zend_hash_next_index_insert(Z_ARRVAL_P(autoload), &loader, sizeof(ap_loader_t *), NULL);
+    zend_hash_next_index_insert(Z_ARRVAL_P(autoload), &method, sizeof(zval *), NULL);
+    MAKE_STD_ZVAL(function);
+    ZVAL_STRING(function, YAF_SPL_AUTOLOAD_REGISTER_NAME, 0);
+    // ....
+    //这里有两个定义：
+    //#define YAF_SPL_AUTOLOAD_REGISTER_NAME         "spl_autoload_register"
+    //#define YAF_AUTOLOAD_FUNC_NAME                 "autoload"
+    //这是将loader 类的"autoload"方法，调用"spl_autoload_register"方法，也就是注册一个autoload方法。
+    //所以自动加载的真正入口就是autoload方法
+```
+autoload方法：
+```c
+PHP_METHOD(yaf_loader, autoload)
+    if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "s", &class_name, &class_name_len) == FAILURE) {
+        return;
+    }
+//取出你要加载的类名
+if (strncmp(class_name, YAF_LOADER_RESERVERD, YAF_LOADER_LEN_RESERVERD) == 0) {
+    php_error_docref(NULL TSRMLS_CC, E_WARNING, "You should not use '%s' as class name prefix", YAF_LOADER_RESERVERD);
+}
+// 自己的类不可以用YAF_开头
+// #define YAF_LOADER_RESERVERD                "Yaf_"
+// #define YAF_LOADER_LEN_RESERVERD            3
+// Yaf框架对于MVC的目录划分是固定的，就是在这里做检查和区分的
+if (ap_loader_is_category(class_name, class_name_len, YAF_LOADER_MODEL, YAF_LOADER_LEN_MODEL TSRMLS_CC)) {
+    /* this is a model class */
+    spprintf(&directory, 0, "%s/%s", app_directory, YAF_MODEL_DIRECTORY_NAME);
+    file_name_len = class_name_len - separator_len - YAF_LOADER_LEN_MODEL;
+    if (YAF_G(name_suffix)) {
+        file_name = estrndup(class_name, file_name_len);
+    } else {
+        file_name = estrdup(class_name + YAF_LOADER_LEN_MODEL + separator_len);
+    }
+    break;
+}
+if (ap_loader_is_category(class_name, class_name_len, YAF_LOADER_PLUGIN, YAF_LOADER_LEN_PLUGIN TSRMLS_CC)) {
+    /* this is a plugin class */
+    spprintf(&directory, 0, "%s/%s", app_directory, YAF_PLUGIN_DIRECTORY_NAME);
+    file_name_len = class_name_len - separator_len - YAF_LOADER_LEN_PLUGIN;
+    if (YAF_G(name_suffix)) {
+        file_name = estrndup(class_name, file_name_len);
+    } else {
+        file_name = estrdup(class_name + YAF_LOADER_LEN_PLUGIN + separator_len);
+    }
+    break;
+}
+if (ap_loader_is_category(class_name, class_name_len, YAF_LOADER_CONTROLLER, YAF_LOADER_LEN_CONTROLLER TSRMLS_CC)) {
+    /* this is a controller class */
+    spprintf(&directory, 0, "%s/%s", app_directory, YAF_CONTROLLER_DIRECTORY_NAME);
+    file_name_len = class_name_len - separator_len - YAF_LOADER_LEN_CONTROLLER;
+    if (YAF_G(name_suffix)) {
+        file_name = estrndup(class_name, file_name_len);
+    } else {
+        file_name = estrdup(class_name + YAF_LOADER_LEN_CONTROLLER + separator_len);
+    }
+    break;
+}
+//这几段相似的逻辑是根据类名判断所属的模块，比如以"Controller"为标识的，就把类文件的查找路劲设为#define YAF_CONTROLLER_DIRECTORY_NAME "controllers"。
+```
+PHP_METHOD(yaf_loader, autoload)
+```c
+    if (YAF_G(st_compatible) && (strncmp(class_name, YAF_LOADER_DAO, YAF_LOADER_LEN_DAO) == 0
+                || strncmp(class_name, YAF_LOADER_SERVICE, YAF_LOADER_LEN_SERVICE) == 0)) {
+        /* this is a model class */
+        spprintf(&directory, 0, "%s/%s", app_directory, YAF_MODEL_DIRECTORY_NAME);
+    }
+//Dao层和Service层都会先被定位到#define YAF_MODEL_DIRECTORY_NAME  "models"目录中。
+```
+当定位好主目录后调用yaf_internal_autoload加载类：
+```c
+smart_str buf = {0};//这里会存储最终获取的文件加载路径
+
+smart_str_appendl(&buf,*directory, strlen(*directory));//把路径添加到buf中
+
+//把下划线 _ 拆分成路径名
+p = file_name;
+q = p;
+while (1) {
+    while(++q && *q != '_' && *q != '\0');
+    if (*q != '\0') {
+        seg_len    = q - p;
+        seg         = estrndup(p, seg_len);
+        smart_str_appendl(&buf, seg, seg_len);
+        efree(seg);
+        smart_str_appendc(&buf, DEFAULT_SLASH);
+        p = q + 1;
+    } else {
+        break;
+    }
+}
+
+if (YAF_G(lowcase_path)) {
+    /* all path of library is lowercase */
+    zend_str_tolower(buf.c + directory_len, buf.len - directory_len);
+}//转小写
+
+//添加.php后缀
+smart_str_appendl(&buf, p, strlen(p));
+smart_str_appendc(&buf, '.');
+smart_str_appendl(&buf, ext, strlen(ext));
+
+status = ap_loader_import(buf.c, buf.len, 0 TSRMLS_CC);
+```
+加载类文件，import的任务很简单
+1) op_array = zend_compile_file(&file_handle, ZEND_INCLUDE TSRMLS_CC);//编译
+2) zend_execute(op_array TSRMLS_CC); //执行
