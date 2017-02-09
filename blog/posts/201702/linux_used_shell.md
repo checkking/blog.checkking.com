@@ -30,7 +30,7 @@ grep str *
 ```
 2. 查找包含某字符串的所有c++文件
 ```bash
-find . -type f -name “*.h” -o -name “*.cpp” | xargs grep 'hello'
+find . -type f -name "*.h" -o -name "*.cpp" | xargs grep 'hello'
 ```
 
 #### svn
