@@ -39,3 +39,18 @@ find . -type f -name "*.h" -o -name "*.cpp" | xargs grep 'hello'
 ```bash
 find . -name ".svn" | xargs rm -rf
 ```
+
+#### 系统
+
+1. 打开core dump
+```bash
+ulimit -c unlimited
+```
+查看coredump是否打开：
+```bash
+ulimit -c
+```
+通过修改 /proc/sys/kernel/core_uses_pid 文件可以让生成 core 文件名是否自动加上 pid 号
+```bash
+echo 1 > /proc/sys/kernel/core_uses_pid
+```
