@@ -94,17 +94,16 @@ ap_application_ce->ce_flags |= ZEND_ACC_FINAL_CLASS;
 #define ZEND_ACC_FINAL            0x04
 #define ZEND_ACC_IMPLEMENTED_ABSTRACT        0x08
 /* class flags (types) */
- 
  //没有声明为抽象,但是内部有抽象方法
- /* ZEND_ACC_IMPLICIT_ABSTRACT_CLASS is used for abstract classes (since it is set by any abstract method even interfaces MAY have it set, too). */
+ // ZEND_ACC_IMPLICIT_ABSTRACT_CLASS is used for abstract classes (since it is set by any abstract method even interfaces MAY have it set, too).
  //抽象，用abstract关键字定义为抽象类的
- /* ZEND_ACC_EXPLICIT_ABSTRACT_CLASS denotes that a class was explicitly defined as abstract by using the keyword. */
-  
+ // ZEND_ACC_EXPLICIT_ABSTRACT_CLASS denotes that a class was explicitly defined as abstract by using the keyword. 
 #define ZEND_ACC_IMPLICIT_ABSTRACT_CLASS    0x10
 #define ZEND_ACC_EXPLICIT_ABSTRACT_CLASS    0x20
 #define ZEND_ACC_FINAL_CLASS                0x40
 define ZEND_ACC_INTERFACE      0x80
 ```
+
 代码new Yaf_Application( YAFPLICATION_PATH . "/conf/application.ini"), $application->bootstrap()->run() 分别对应了下面三个函数：
 ```c
 	PHP_ME(yaf_application, __construct, 		yaf_application_construct_arginfo, 	ZEND_ACC_PUBLIC | ZEND_ACC_CTOR)
