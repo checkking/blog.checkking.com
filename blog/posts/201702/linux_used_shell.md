@@ -54,3 +54,10 @@ ulimit -c
 ```bash
 echo 1 > /proc/sys/kernel/core_uses_pid
 ```
+
+#### 进程
+
+1. 删除某个进程
+```bash
+ps -ef | grep twisted | awk '{print $2}' | xargs kill 
+```
