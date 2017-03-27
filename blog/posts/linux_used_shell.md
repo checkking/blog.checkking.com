@@ -64,5 +64,10 @@ echo 1 > /proc/sys/kernel/core_uses_pid
 
 1. 删除某个进程
 ```bash
-ps -ef | grep twisted | awk '{print $2}' | xargs kill 
+ps -ef | grep {execute file name} | awk '{print $2}' | xargs kill 
+```
+
+2. 查看某个进程的启动路径
+```bash
+ll /proc/{pid}/
 ```
