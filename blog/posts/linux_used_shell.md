@@ -27,7 +27,7 @@ find  . -name "*.c" | xargs wc -l
 cat access.log | grep 3cf0266e   | grep "16/Mar/2017:15" | awk '{print $4}' | awk -F':' '{sum[$3]++}END{for (i in sum) print i, sum[i]}' | sort -k1
 ```
 
-#### 查找
+#### 查找与替换
 
 1. 查找当前目录下所有的文件包含某字符串
 ```bash
@@ -36,6 +36,11 @@ grep str *
 2. 查找包含某字符串的所有c++文件
 ```bash
 find . -type f -name "*.h" -o -name "*.cpp" | xargs grep 'hello'
+```
+
+3. 替换掉某个文件夹下所有字符串
+```bash
+find . -type f |xargs sed -i 's/odp_0331/odp/g' 
 ```
 
 #### svn
