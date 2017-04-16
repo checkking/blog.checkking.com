@@ -27,6 +27,11 @@ find  . -name "*.c" | xargs wc -l
 cat access.log | grep 3cf0266e   | grep "16/Mar/2017:15" | awk '{print $4}' | awk -F':' '{sum[$3]++}END{for (i in sum) print i, sum[i]}' | sort -k1
 ```
 
+5. 正则统计某个字符串出现的次数:
+```bash
+cat log | awk '{match($0, /(BASE_[_A-Z]+)/, a); cnt[a[1]]++} END{for (i in cnt) {print i"\t"cnt[i]}}' 
+```
+
 #### 查找与替换
 
 1. 查找当前目录下所有的文件包含某字符串
