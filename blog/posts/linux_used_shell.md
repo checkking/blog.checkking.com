@@ -81,3 +81,16 @@ ps -ef | grep {execute file name} | awk '{print $2}' | xargs kill
 ```bash
 ll /proc/{pid}/
 ```
+
+3. 根据pid查看进程是否存活
+```bash
+now=`date +%Y%m%d%H%M%S`
+pid=$(`cat ${base_path}/var/run.pid`)
+ps ax | awk '{print $1}' | grep "^${pid}$"
+if [ $? == 0 ]; then
+    echo "[WARNNING]""$now"" run.sh is already running, stop this script." >&2
+    exit 1
+else
+    echo "[WARNNING]""$now"" previous pid[""$pid"" failed!" >&2
+fi
+```
