@@ -48,6 +48,11 @@ find . -type f -name "*.h" -o -name "*.cpp" | xargs grep 'hello'
 find . -type f |xargs sed -i 's/odp_0331/odp/g' 
 ```
 
+4. 将多行归并成一行文本
+```bash
+cat txt | awk '{a=(a","$0)}END{print a}'
+```
+
 #### svn
 
 1. 删除代码路径下的svn
