@@ -48,9 +48,15 @@ find . -type f -name "*.h" -o -name "*.cpp" | xargs grep 'hello'
 find . -type f |xargs sed -i 's/odp_0331/odp/g' 
 ```
 
-4. 将多行归并成一行文本
+#### 文本处理
+
+1. 将多行归并成一行文本
 ```bash
 cat txt | awk '{a=(a","$0)}END{print a}'
+
+2. 对一个文件按行shuffle
+```bash
+awk 'BEGIN{srand()}{a[rand()NR]=$0}END{for (l in a) prin a[l]}' file
 ```
 
 #### svn
