@@ -59,6 +59,31 @@ cat txt | awk '{a=(a","$0)}END{print a}'
 awk 'BEGIN{srand()}{a[rand()NR]=$0}END{for (l in a) prin a[l]}' file
 ```
 
+3. 按列归并两个文件
+
+```
+# f1
+sina.com 52.5
+sohu.com 42.5
+baidu.com 35
+
+# f2
+www.news.sina.com sina.com 80
+www.over.sohu.com baidu.com 20
+www.fa.baidu.com sohu.com 50
+www.open.sina.com sina.com 60
+www.sport.sohu.com sohu.com 70
+www.xxx.sohu.com sohu.com 30
+www.abc.sina.com sina.com 10
+www.fa.baidu.com baidu.com 50
+www.open.sina.com sina.com 60
+www.over.sohu.com sohu.com 20
+```
+
+```bash
+awk 'FNR==NR{a[$1]=$2;next}{print $0,a[$2]}' f1 f2
+```
+
 #### svn
 
 1. 删除代码路径下的svn
