@@ -48,6 +48,11 @@ find . -type f -name "*.h" -o -name "*.cpp" | xargs grep 'hello'
 find . -type f |xargs sed -i 's/odp_0331/odp/g' 
 ```
 
+4. 多个key进行查找
+```bash
+grep -E "key1|key2|key3" file
+```
+
 #### 文本处理
 
 1. 将多行归并成一行文本
@@ -129,4 +134,18 @@ if [ $? == 0 ]; then
 else
     echo "[WARNNING]""$now"" previous pid[""$pid"" failed!" >&2
 fi
+```
+
+4. 程序运行时指定句柄数限制方法
+```bash
+nohup limit -n 1000000 ./bin/gateway  &
+// 或者
+ulimit -n 100000 && nohup ./bin/gateway  &
+```
+
+#### 网络
+
+1. 统计tcp各个状态个数
+```bash
+netstat -an | awk '/^tcp/ {++state[$NF]} END{for (key in state) print key,"\t",state[key]}'
 ```
