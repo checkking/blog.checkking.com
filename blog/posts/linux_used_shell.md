@@ -149,3 +149,20 @@ ulimit -n 100000 && nohup ./bin/gateway  &
 ```bash
 netstat -an | awk '/^tcp/ {++state[$NF]} END{for (key in state) print key,"\t",state[key]}'
 ```
+
+### nginx
+
+1. 日志切割
+```bash
+nginx_dir="/home/soft/resty/nginx"
+nginx_pid="/home/soft/resty/nginx/logs/nginx.pid"
+cd $nginx_dir 
+log_dir="${nginx_dir}/logs"
+time=`date +%Y%m%d%H`
+logfile="access.js_mobojoy.conf.log"
+
+mv $log_dir/${logfile} $log_dir/${logfile%.*}_$time.log
+
+#$nginx_dir/sbin/nginx -s reload
+kill -USR1 `cat ${nginx_pid}`
+```
