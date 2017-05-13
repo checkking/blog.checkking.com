@@ -160,9 +160,6 @@ cd $nginx_dir
 log_dir="${nginx_dir}/logs"
 time=`date +%Y%m%d%H`
 logfile="access.js_mobojoy.conf.log"
-
 mv $log_dir/${logfile} $log_dir/${logfile%.*}_$time.log
-
-#$nginx_dir/sbin/nginx -s reload
 kill -USR1 `cat ${nginx_pid}`
 ```
