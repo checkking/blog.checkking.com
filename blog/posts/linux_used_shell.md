@@ -109,6 +109,10 @@ ulimit -c
 通过修改 /proc/sys/kernel/core_uses_pid 文件可以让生成 core 文件名是否自动加上 pid 号
 ```bash
 echo 1 > /proc/sys/kernel/core_uses_pid
+
+2. 修改文件或目录所属用户
+```bash
+chown -R username /var/data/
 ```
 
 #### 进程
